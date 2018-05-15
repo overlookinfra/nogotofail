@@ -203,3 +203,24 @@ class WeakTLSVersionDetectionHandler(DataHandler):
                 self.log(logging.ERROR,
                         "Client enabled SSLv3 protocol without TLS_FALLBACK_SCSV")
             self.log_attack_event(data="SSLv3")
+
+
+@handler.passive(handlers)
+class ClientCompressionDetectionHandler(DataHandler):
+    name = "compressiondetection"
+    description = "Detect insecure non-null compression methods in TLS Client Hellos"
+
+    def _handle_compression_detected(self, compression_methods, message):
+            self.log(logging.ERROR, message)
+            self.log_attack_event(data=compression_methods)
+            self.connection.vuln_notify(vuln.VULN_TLS_CLIENT_COMPRESSION)
+
+    def on_ssl(self, client_hello):
+        all_compression_methods = [str(cm) for cm in client_hello.compression_methods]
+ 
+        for xcm in client_hello.compression_methods:
+            if str(xcm) != 'null':
+                self._handle_compression_detected(all_compression_methods,
+                                               "Client enabled non-null compression methods %s" %
+                                                 (", ".join(all_compression_methods)))
+ 
